@@ -6,13 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type JadwalImsakiyah struct {
+	Hari    string `json:"hari"`
 	Tanggal string `json:"tanggal"`
 	Imsak   string `json:"imsak"`
 	Subuh   string `json:"subuh"`
-	Dhuha   string `json:"dhuha"`
 	Dzuhur  string `json:"dzuhur"`
 	Ashar   string `json:"ashar"`
 	Maghrib string `json:"maghrib"`
@@ -22,8 +23,17 @@ type JadwalImsakiyah struct {
 func ScrapeJadwalImsakiyah() ([]JadwalImsakiyah, error) {
 	var jadwal []JadwalImsakiyah
 
-	url := "https://www.kompas.com/ramadhan/jadwal-imsakiyah/"
-	resp, err := http.Get(url)
+	url := "https://www.kompas.com/ramadhan/jadwal-imsakiyah/kota-palembang"
+
+	// Buat request dengan User-Agent agar tidak diblokir
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -38,20 +48,20 @@ func ScrapeJadwalImsakiyah() ([]JadwalImsakiyah, error) {
 		return nil, err
 	}
 
-	// Cari elemen tabel yang berisi jadwal
-	doc.Find(".jadwal-imsakiyah tbody tr").Each(func(i int, s *goquery.Selection) {
+	// Scrape data dari tabel dengan class "w-full"
+	doc.Find("table.w-full tbody tr").Each(func(i int, s *goquery.Selection) {
 		var row JadwalImsakiyah
 		s.Find("td").Each(func(j int, td *goquery.Selection) {
-			text := td.Text()
+			text := strings.TrimSpace(td.Text())
 			switch j {
 			case 0:
-				row.Tanggal = text
+				row.Hari = text
 			case 1:
-				row.Imsak = text
+				row.Tanggal = text
 			case 2:
-				row.Subuh = text
+				row.Imsak = text
 			case 3:
-				row.Dhuha = text
+				row.Subuh = text
 			case 4:
 				row.Dzuhur = text
 			case 5:
