@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type JadwalImsakiyah struct {
@@ -78,6 +79,46 @@ func ScrapeJadwalImsakiyah() ([]JadwalImsakiyah, error) {
 	return jadwal, nil
 }
 
+// Fungsi untuk mendapatkan jadwal hari ini
+func ScrapeJadwalHariIni() (*JadwalImsakiyah, error) {
+	jadwal, err := ScrapeJadwalImsakiyah()
+	if err != nil {
+		return nil, err
+	}
+
+	// Format tanggal hari ini sesuai dengan format di situs (misal: "Sabtu, 01/03")
+	today := time.Now().Format("Monday, 02/01")
+	today = convertIndonesianDay(today) // Konversi nama hari ke bahasa Indonesia
+
+	// Cari data yang sesuai dengan tanggal hari ini
+	for _, j := range jadwal {
+		if j.Tanggal == today {
+			return &j, nil
+		}
+	}
+
+	return nil, fmt.Errorf("Jadwal hari ini tidak ditemukan")
+}
+
+// Konversi nama hari dari English ke Indonesian (karena format tanggal di web Kompas)
+func convertIndonesianDay(dateStr string) string {
+	indonesianDays := map[string]string{
+		"Monday":    "Senin",
+		"Tuesday":   "Selasa",
+		"Wednesday": "Rabu",
+		"Thursday":  "Kamis",
+		"Friday":    "Jumat",
+		"Saturday":  "Sabtu",
+		"Sunday":    "Minggu",
+	}
+
+	for en, id := range indonesianDays {
+		dateStr = strings.ReplaceAll(dateStr, en, id)
+	}
+
+	return dateStr
+}
+
 func main() {
 	r := gin.Default()
 
@@ -85,6 +126,16 @@ func main() {
 		jadwal, err := ScrapeJadwalImsakiyah()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, jadwal)
+	})
+
+	// Endpoint untuk mendapatkan jadwal hari ini
+	r.GET("/imsakiyah/today", func(c *gin.Context) {
+		jadwal, err := ScrapeJadwalHariIni()
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusOK, jadwal)
